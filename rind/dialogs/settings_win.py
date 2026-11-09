@@ -26,6 +26,8 @@ class SettingsWindow(QWidget):
         super().__init__(None)
         self.setWindowTitle(f"{APP_NAME} settings")
         self.setObjectName("Root")
+        from .. import glass
+        glass.prepare_window(self)
         self.resize(640, 560)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 16, 18, 16)
@@ -127,6 +129,10 @@ class SettingsWindow(QWidget):
             self.changed.emit()
         ac.changed.connect(set_acc)
         f.addRow(self._m("Accent"), ac)
+        f.addRow("", self._check("glass", "Liquid glass (blurs what's behind Rind's windows)"))
+        f.addRow("", self._check("glass_backdrop", "Glass wheel shows a blurred view of what's under it"))
+        f.addRow(self._m("Window glass"), self._combo("glass_style", ["acrylic", "mica"], {"acrylic": "Acrylic (clearer)", "mica": "Mica (subtle)"}))
+        f.addRow("", self._check("confirm_delete", "Ask before deleting files"))
         return w
 
     def _keys(self):

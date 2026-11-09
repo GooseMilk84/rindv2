@@ -147,17 +147,29 @@ class Toast(QWidget):
         self._hide_timer = QTimer(self, singleShot=True, timeout=self.close_toast)
         self.bar.setRange(0, 0)   # busy until the first real progress number arrives
 
+    def showEvent(self, e):
+        super().showEvent(e)
+        if not getattr(self, "_blur_tried", False):
+            self._blur_tried = True
+            from . import glass
+            self._blur = glass.blur_behind(self, 16)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        if getattr(self, "_blur", False):
+            from . import glass
+            glass.round_mask(self, 16)
+
     def paintEvent(self, _):
+        from . import glass
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(10, 8, -10, -12)
-        for i in range(8, 0, -1):
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(0, 0, 0, 7))
-            p.drawRoundedRect(r.adjusted(-i, -i + 3, i, i + 3), 14 + i, 14 + i)
-        p.setBrush(QColor(theme.SURFACE))
-        p.setPen(QPen(QColor(theme.BORDER), 1))
-        p.drawRoundedRect(r, 14, 14)
+        if getattr(self, "_blur", False):
+            glass.panel(p, QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 16, tint=QColor(16, 16, 22, 155), shine=34)
+        else:
+            r = QRectF(self.rect()).adjusted(10, 8, -10, -12)
+            glass.shadow(p, r, 16, 8, 7)
+            glass.panel(p, r, 16, tint=QColor(22, 22, 28, 240), shine=32)
         p.end()
 
     def set_progress(self, frac: float, msg: str):

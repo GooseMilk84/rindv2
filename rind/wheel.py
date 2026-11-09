@@ -5,7 +5,7 @@ import math
 import os
 import time
 
-from PySide6.QtCore import (QEasingCurve, QPoint, QPointF, QRectF, Qt, QTimer, QVariantAnimation, Signal)
+from PySide6.QtCore import (QEasingCurve, QPoint, QPointF, QRect, QRectF, Qt, QTimer, QVariantAnimation, Signal)
 from PySide6.QtGui import (QColor, QCursor, QFont, QFontMetricsF, QGuiApplication, QPainter, QPainterPath, QPen,
                            QRadialGradient, QLinearGradient)
 from PySide6.QtWidgets import QWidget
@@ -58,6 +58,7 @@ class Wheel(QWidget):
         self.size_text = ""
         self.kind_text = ""
         self.waiting = True
+        self.backdrop = None
         self._drop_done = False
         self._anim = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=170,
                                        easingCurve=QEasingCurve.Type.OutCubic)
@@ -159,7 +160,10 @@ class Wheel(QWidget):
         x = max(g.left() - 20, min(x, g.right() - self.width() + 20))
         y = max(g.top() - 20, min(y, g.bottom() - self.height() + 20))
         self.move(x, y)
-        self.setWindowOpacity(float(settings.get("wheel_opacity", 0.97)))
+        # liquid glass: photograph what's under the wheel *before* it appears, blurred
+        from . import glass
+        self.backdrop = glass.grab_behind(QRect(x, y, self.width(), self.height()), 16) if not self.isVisible() else self.backdrop
+        self.setWindowOpacity(float(settings.get("wheel_opacity", 1.0)))
         self.show()
         self.raise_()
         if self.click_mode:
@@ -201,6 +205,7 @@ class Wheel(QWidget):
     def dismiss(self):
         self._tick.stop()
         self.hide()
+        self.backdrop = None
         self.paths = []
         self.slices = []
 
@@ -321,28 +326,47 @@ class Wheel(QWidget):
 
         R = self.D / 2
         accent = QColor(theme.accent())
-        base = QColor(theme.SURFACE)
-        slice_c = QColor("#232327")
-        border = QColor("#34343b")
         text_c = QColor("#e4e4ea")
         muted = QColor(theme.MUTED)
 
+        from . import glass
+        bd = getattr(self, "backdrop", None)
+        c = QPointF(self.cx, self.cy)
         # shadow
+        p.setPen(Qt.PenStyle.NoPen)
         for i in range(10, 0, -1):
-            c = QColor(0, 0, 0, int(9 * (11 - i) / 11 * 1.6))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(c)
-            rr = R + 4 + i * 2.2
-            p.drawEllipse(QPointF(self.cx, self.cy + 6), rr, rr)
-        # plate
-        outer = (max(s.r1 for s in self.slices) if self.slices else R * 0.9) + 7
-        p.setBrush(QColor(17, 17, 19, 245))
-        p.setPen(QPen(border, 1))
-        p.drawEllipse(QPointF(self.cx, self.cy), outer, outer)
+            p.setBrush(QColor(0, 0, 0, int(8 * (11 - i) / 11 * 1.5)))
+            rr = R + 2 + i * 2.2
+            p.drawEllipse(QPointF(self.cx, self.cy + 7), rr, rr)
+        # plate: blurred backdrop, a magnified "lens" rim, tint, sheen, specular edge
+        outer = (max(s.r1 for s in self.slices) if self.slices else R * 0.9) + 8
+        plate = QPainterPath()
+        plate.addEllipse(c, outer, outer)
+        prect = QRectF(self.cx - outer, self.cy - outer, 2 * outer, 2 * outer)
+        if bd is not None:
+            p.save()
+            p.setClipPath(plate)
+            tr = p.transform()
+            p.resetTransform()
+            p.drawPixmap(0, 0, bd)
+            # lens: the outer band shows the backdrop slightly magnified, like light bending through a thick edge
+            p.setTransform(tr)
+            band = QPainterPath()
+            band.addEllipse(c, outer, outer)
+            inner = QPainterPath()
+            inner.addEllipse(c, outer - 16, outer - 16)
+            p.setClipPath(band.subtracted(inner))
+            p.resetTransform()
+            p.translate(self.cx, self.cy)
+            p.scale(1.07, 1.07)
+            p.translate(-self.cx, -self.cy)
+            p.drawPixmap(0, 0, bd)
+            p.restore()
+        glass.panel(p, prect, 0, path=plate, tint=QColor(14, 14, 18, 140 if bd is not None else 238), rim=1.0, shine=34)
 
         # slices
         if not self.slices:
-            p.setPen(QPen(QColor("#2c2c32"), 1, Qt.PenStyle.DashLine))
+            p.setPen(QPen(QColor(255, 255, 255, 40), 1, Qt.PenStyle.DashLine))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawEllipse(QPointF(self.cx, self.cy), R * 0.62, R * 0.62)
         fm_big = QFont(theme.ui_font(10.5, QFont.Weight.DemiBold))
@@ -355,16 +379,18 @@ class Wheel(QWidget):
                 mid = (s.a0 + s.a1) / 2
                 push = 5 * h
                 p.translate(math.cos(mid) * push, math.sin(mid) * push)
-            fill = _mix(slice_c, accent, h)
-            if h > 0.05:
-                g = QLinearGradient(s.center.x(), s.center.y() - 40, s.center.x(), s.center.y() + 40)
-                g.setColorAt(0, _mix(slice_c, accent.lighter(118), h))
-                g.setColorAt(1, _mix(slice_c, accent.darker(108), h))
-                p.setBrush(g)
-            else:
-                p.setBrush(fill)
-            p.setPen(QPen(_mix(QColor("#2f2f35"), accent.lighter(125), h), 1.4 if h < 0.5 else 0, Qt.PenStyle.SolidLine,
-                          Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+            br = s.path.boundingRect()
+            # frosted pane, flooding with accent as you hover
+            g = QLinearGradient(br.topLeft(), br.bottomLeft())
+            g.setColorAt(0, _mix(QColor(255, 255, 255, 34), QColor(accent.lighter(128).red(), accent.lighter(128).green(),
+                                                                   accent.lighter(128).blue(), 235), h))
+            g.setColorAt(1, _mix(QColor(255, 255, 255, 12), QColor(accent.darker(110).red(), accent.darker(110).green(),
+                                                                   accent.darker(110).blue(), 225), h))
+            p.setBrush(g)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawPath(s.path)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(glass.rim_pen(br, 0.75 + 0.5 * h, 1.1))
             p.drawPath(s.path)
             # content
             tc = _mix(text_c, QColor("#ffffff"), h)
@@ -386,10 +412,10 @@ class Wheel(QWidget):
 
         # hub
         hr = self.hub_r
-        hub_fill = QColor("#1b1b1f") if not self.hub_hover else QColor("#26262b")
-        p.setBrush(hub_fill)
-        p.setPen(QPen(QColor("#33333a"), 1))
-        p.drawEllipse(QPointF(self.cx, self.cy), hr, hr)
+        hub = QPainterPath()
+        hub.addEllipse(QPointF(self.cx, self.cy), hr, hr)
+        glass.panel(p, QRectF(self.cx - hr, self.cy - hr, 2 * hr, 2 * hr), 0, path=hub,
+                    tint=QColor(0, 0, 0, 70) if not self.hub_hover else QColor(255, 255, 255, 22), rim=0.9, shine=26)
         p.setPen(QPen(accent, 2))
         p.setBrush(Qt.BrushStyle.NoBrush)
         if self.hovered is not None:
@@ -449,15 +475,20 @@ class Wheel(QWidget):
         total = sum(w for *_, w in parts) + 8
         x = self.cx - total / 2
         y = self.height() - 36
-        p.setPen(QPen(QColor("#2f2f35"), 1))
-        p.setBrush(QColor(20, 20, 23, 240))
-        p.drawRoundedRect(QRectF(x, y, total, 28), 14, 14)
+        from . import glass
+        pill = QRectF(x, y, total, 28)
+        bd = getattr(self, "backdrop", None)
+        glass.panel(p, pill, 14, backdrop=bd, tint=QColor(14, 14, 18, 130 if bd is not None else 238), shine=30)
         x += 4
         for m, lab, key, w in parts:
             r = QRectF(x, y + 3, w, 22)
             if m == self.mode:
-                p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(QColor(theme.accent()))
+                a = QColor(theme.accent())
+                g = QLinearGradient(r.topLeft(), r.bottomLeft())
+                g.setColorAt(0, a.lighter(125))
+                g.setColorAt(1, a.darker(106))
+                p.setPen(glass.rim_pen(r, 0.9, 1))
+                p.setBrush(g)
                 p.drawRoundedRect(r, 11, 11)
             p.setFont(f)
             p.setPen(QColor("#ffffff") if m == self.mode else QColor("#c9c9d0"))

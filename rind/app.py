@@ -59,6 +59,7 @@ def app_icon(size=64, accent=None) -> QIcon:
 class RindApp:
     def __init__(self, app: QApplication, files: list[str] | None, background: bool):
         self.app = app
+        app.rind = self
         self.jobs = JobManager()
         self._shelf = None
         self._settings = None
@@ -105,6 +106,9 @@ class RindApp:
         a = QAction("Float shelf", m)
         a.triggered.connect(lambda: self.shelf().add([]))
         m.addAction(a)
+        a = QAction("Delete files…", m)
+        a.triggered.connect(self._delete_dialog)
+        m.addAction(a)
         m.addSeparator()
         self.pause_act = QAction("Pause drag detection", m, checkable=True)
         self.pause_act.toggled.connect(lambda v: setattr(self.watcher, "enabled", not v))
@@ -125,6 +129,12 @@ class RindApp:
                                     else (self.open_files() if r == QSystemTrayIcon.ActivationReason.MiddleClick else None))
         self.tray.show()
 
+    def _delete_dialog(self):
+        files, _ = QFileDialog.getOpenFileNames(None, "Delete files")
+        if files:
+            from .tools import delete_files
+            delete_files(files, self.jobs)
+
     def _open_log(self):
         from .config import data_dir
         p = data_dir() / "log.txt"
@@ -136,7 +146,7 @@ class RindApp:
     def shelf(self):
         if self._shelf is None:
             from .dialogs.shelf import Shelf
-            self._shelf = Shelf()
+            self._shelf = Shelf(self.handler)
         return self._shelf
 
     def open_settings(self):

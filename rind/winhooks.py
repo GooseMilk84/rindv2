@@ -86,6 +86,9 @@ def cursor_phys() -> tuple[int, int]:
     return pt.x, pt.y
 
 
+INTERNAL_DRAG = [False]     # set while Rind itself is dragging files (e.g. out of the Float shelf)
+
+
 class DragWatcher(QObject):
     """Polls mouse/keyboard state (~60 Hz) to notice: a file drag is in progress AND
     the user pressed one of the wheel keys. Cheap: a handful of GetAsyncKeyState calls."""
@@ -127,6 +130,7 @@ class DragWatcher(QObject):
             dragging = drag_image_visible() or (det != "strict" and self.press_ok and moved)
             if det == "loose":
                 dragging = moved
+            dragging = dragging or INTERNAL_DRAG[0]
             mk = self.mode_keys()
             for k, down in mods.items():
                 if down and not self.mods_prev[k] and k in mk:

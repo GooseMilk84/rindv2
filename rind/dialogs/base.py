@@ -1,6 +1,7 @@
 """Shared dialog chrome + small helpers."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, Signal
@@ -45,6 +46,8 @@ class ToolDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setObjectName("Root")
+        from .. import glass
+        glass.prepare_window(self)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         outer = QVBoxLayout(self)
@@ -383,3 +386,34 @@ def run_bg(work, on_value):
         except Exception:
             pass
     _threading.Thread(target=t, daemon=True).start()
+
+
+class DeleteDialog(ToolDialog):
+    """Are you sure? Lists what's going, with a 'skip the Recycle Bin' box."""
+
+    def __init__(self, paths: list[str], parent=None):
+        n = len(paths)
+        super().__init__(f"Delete {n} item{'s' if n != 1 else ''}?", "", "Delete", parent, width=420)
+        from PySide6.QtWidgets import QCheckBox, QListWidget
+        from ..registry import human_size, total_size
+        lst = QListWidget()
+        for p in paths[:200]:
+            lst.addItem(os.path.basename(p.rstrip("\\/")) or p)
+        if n > 200:
+            lst.addItem(f"…and {n - 200} more")
+        lst.setMaximumHeight(min(200, 26 + 26 * min(n, 6)))
+        self.body.addWidget(lst)
+        info = QLabel(f"{human_size(total_size(paths))} · they'll go to the Recycle Bin, so you can get them back.")
+        info.setObjectName("Muted")
+        info.setWordWrap(True)
+        self.body.addWidget(info)
+        self.perm = QCheckBox("Delete permanently (skip the Recycle Bin)")
+        self.perm.toggled.connect(lambda v: (info.setText(f"{human_size(total_size(paths))} · gone for good, no undo." if v else
+                                                          f"{human_size(total_size(paths))} · they'll go to the Recycle Bin, so you can get them back."),
+                                             self.ok_btn.setObjectName("Danger" if v else "Primary"),
+                                             self.ok_btn.style().unpolish(self.ok_btn), self.ok_btn.style().polish(self.ok_btn)))
+        self.body.addWidget(self.perm)
+
+    @property
+    def permanent(self) -> bool:
+        return self.perm.isChecked()

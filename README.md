@@ -1,6 +1,6 @@
 # Rind
 
-Drag a file, tap **Shift**, drop it on a slice. A Windows rebuild of the Mac app *Tangerine*, with a solid dark UI instead of liquid glass. Everything runs on your PC: no uploads, no accounts, no trial.
+Drag a file, tap **Shift**, drop it on a slice. A Windows rebuild of the Mac app *Tangerine*, in dark liquid glass. Everything runs on your PC: no uploads, no accounts, no trial.
 
 ## Install
 
@@ -18,7 +18,7 @@ Drag a file, tap **Shift**, drop it on a slice. A Windows rebuild of the Mac app
 |---|---|
 | tap **Shift** | **Convert**: every format that file can become |
 | tap **Ctrl** | **Tools**: compress, crop, trim, merge… |
-| tap **Alt** | **Actions**: copy, move, float, zip… |
+| tap **Alt** | **Actions**: copy, move, float, zip, delete… |
 
 Drop on a slice to run it. Drop on the centre or press **Esc** to cancel. You can switch wheels mid-drag by tapping a different key. Results are saved **next to the original**, and the original is never touched. A toast in the corner shows progress, the size change, and **Open / Show in folder / Undo** (Undo sends the new file to the Recycle Bin).
 
@@ -66,7 +66,11 @@ Video conversions that only need a new container are remuxed losslessly in about
 - **Archives:** Extract (unwraps single folders, asks for passwords), Contents, Protect (AES ZIP/7Z), Test
 - **JSON/XML/YAML:** Format, Minify
 
-**Actions** (any file or folder): Copy (paste anywhere in Explorer), Move to, Copy to, Copy Path, Terminal here, **Float** (an always-on-top shelf you park files on and drag back out later), Zip, Open with, batch Rename (pattern / counter / find-replace / case, live preview), Checksum (MD5/SHA-1/SHA-256 + compare).
+**Actions** (any file or folder): Copy (paste anywhere in Explorer), Move to, Copy to, Copy Path, Terminal here, **Float** (an always-on-top shelf you park files on and drag back out later), Zip, Open with, batch Rename (pattern / counter / find-replace / case, live preview), Checksum (MD5/SHA-1/SHA-256 + compare), **Delete** (Recycle Bin by default, or permanently; also in the tray menu).
+
+**Float shelf:** drop files on it, drag them back out into Explorer, an email, Discord, whatever. Tap Shift while dragging out of it to get the wheel. Del removes from the shelf, Shift+Del deletes the file, right-click for open / show in folder / copy path. "Take files off the shelf when dragged out" is in the right-click menu.
+
+**Liquid glass:** the wheel blurs and refracts whatever's under it; Float and the pop-ups blur live behind them; dialogs and settings use Windows 11's acrylic backdrop (22H2+; older Windows gets the same look on a solid dark base). Turn it off or switch to Mica in Settings → General.
 
 ## Notes
 

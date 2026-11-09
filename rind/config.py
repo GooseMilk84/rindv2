@@ -25,7 +25,11 @@ DEFAULTS = {
     # ui
     "accent": "#ff7a1a",
     "wheel_size": 380,
-    "wheel_opacity": 0.97,
+    "wheel_opacity": 1.0,
+    "glass": True,               # liquid glass look (blur + specular edges)
+    "glass_backdrop": True,      # blur what's behind the wheel
+    "glass_style": "acrylic",    # dialogs on Windows 11: acrylic | mica
+    "confirm_delete": True,
     "show_toasts": True,
     "reveal_after": False,
     "hotkey": "ctrl+alt+space",

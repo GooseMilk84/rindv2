@@ -744,9 +744,38 @@ class Handler:
             os.rename(t, b)
         self.jobs.notify("Renamed", f"{len(plan)} item{'s' if len(plan) != 1 else ''}")
 
+    def a_delete(self, paths):
+        delete_files(paths, self.jobs)
+
     def a_checksum(self, paths):
         from .dialogs.misc import ChecksumDialog
         ChecksumDialog(paths).exec()
+
+
+def delete_files(paths: list[str], jobs: JobManager, parent=None, on_done=None) -> bool:
+    """Confirm, then Recycle Bin (or permanent). Returns False if you backed out."""
+    from . import trash
+    from .config import settings
+    paths = [p for p in paths if os.path.lexists(p)]
+    if not paths:
+        return False
+    permanent = False
+    if settings.get("confirm_delete", True):
+        from .dialogs.base import DeleteDialog
+        d = DeleteDialog(paths, parent)
+        if not d.run():
+            return False
+        permanent = d.permanent
+    fails = trash.delete(paths, permanent)
+    gone = len(paths) - len(fails)
+    if gone:
+        jobs.notify("Deleted" if permanent else "Moved to Recycle Bin",
+                    names([p for p in paths if p not in {f for f, _ in fails}]))
+    if fails:
+        jobs.info_ready.emit(Info(f"Couldn't delete {len(fails)}", "\n".join(f"{os.path.basename(p)}: {why}" for p, why in fails)))
+    if on_done:
+        on_done()
+    return True
 
 
 def crop_gif(src: str, rect) -> Path:

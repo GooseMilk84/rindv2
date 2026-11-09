@@ -184,6 +184,7 @@ ACTIONS = [
     T("terminal", "Terminal", "terminal", "action"), T("float", "Float", "float", "action"),
     T("zip", "Zip", "zip", "action"), T("openwith", "Open with", "openwith", "action"),
     T("rename", "Rename", "text", "action"), T("checksum", "Checksum", "hash", "action"),
+    T("delete", "Delete", "trash", "action"),
 ]
 
 
