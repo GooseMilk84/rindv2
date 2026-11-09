@@ -1,0 +1,4 @@
+# nice-to-haves; install.bat tries each one and skips any that fail
+rawpy          # camera RAW (CR2/NEF/ARW/DNG...)
+zxing-cpp      # Read QR / barcodes
+zstandard      # .zst archives
